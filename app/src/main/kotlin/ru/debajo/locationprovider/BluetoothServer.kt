@@ -19,9 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-internal class BluetoothServer(private val address: UUID) {
-    private val bluetoothManager: BluetoothManager by lazy { Di.bluetoothManager }
-    private val coroutineScope: CoroutineScope by lazy { Di.coroutineScope }
+internal class BluetoothServer(
+    private val bluetoothManager: BluetoothManager,
+    private val coroutineScope: CoroutineScope,
+) {
     private val bluetoothAdapter: BluetoothAdapter by lazy { bluetoothManager.adapter }
     private var job: Job? = null
 
@@ -32,7 +33,7 @@ internal class BluetoothServer(private val address: UUID) {
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun start() {
+    fun start(address: UUID = bluetoothServerUuid) {
         job?.cancel()
         job = coroutineScope.launch(Dispatchers.IO) {
             val serverSocket = runCatchingAsync {
@@ -64,5 +65,9 @@ internal class BluetoothServer(private val address: UUID) {
         job?.cancel()
         job = null
         _isRunning.value = false
+    }
+
+    companion object {
+        val bluetoothServerUuid: UUID = UUID.fromString("cb9121b3-243c-46a9-b114-d1c72c51578a")
     }
 }

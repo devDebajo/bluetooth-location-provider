@@ -9,7 +9,6 @@ import android.content.Context.NOTIFICATION_SERVICE
 import android.location.LocationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import java.util.UUID
 
 internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
     val context: Context
@@ -29,5 +28,9 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
 
     val coroutineScope: CoroutineScope = this
 
-    val bluetoothServerUuid: UUID = UUID.fromString("cb9121b3-243c-46a9-b114-d1c72c51578a")
+    val bluetoothClient: BluetoothClient
+        get() = BluetoothClient(bluetoothManager)
+
+    val bluetoothServer: BluetoothServer
+        get() = BluetoothServer(bluetoothManager, coroutineScope)
 }

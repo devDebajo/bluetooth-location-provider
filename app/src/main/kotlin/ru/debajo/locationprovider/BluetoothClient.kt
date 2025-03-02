@@ -9,12 +9,16 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.util.UUID
 
-internal class BluetoothClient {
-    private val bluetoothManager: BluetoothManager by lazy { Di.bluetoothManager }
+internal class BluetoothClient(
+    private val bluetoothManager: BluetoothManager,
+) {
     private val bluetoothAdapter: BluetoothAdapter by lazy { bluetoothManager.adapter }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    suspend fun connect(serverAddress: UUID, endpoint: BluetoothEndpoint): BluetoothConnection? {
+    suspend fun connect(
+        endpoint: BluetoothEndpoint,
+        serverAddress: UUID = BluetoothServer.bluetoothServerUuid,
+    ): BluetoothConnection? {
         return runCatchingAsync {
             withContext(Dispatchers.IO) {
                 connectUnsafe(serverAddress, endpoint)
