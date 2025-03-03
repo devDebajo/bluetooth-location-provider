@@ -23,23 +23,25 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
     val context: Context
         get() = App.INSTANCE
 
-    val sharedPreferences: SharedPreferences by lazy {
+    private val sharedPreferences: SharedPreferences by lazy {
         context.getSharedPreferences("location_provider_prefs", Context.MODE_PRIVATE)
     }
 
-    val bluetoothManager: BluetoothManager by lazy {
+    val preferences: Preferences by lazy { Preferences(sharedPreferences) }
+
+    private val bluetoothManager: BluetoothManager by lazy {
         context.getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
     }
 
-    val locationManager: LocationManager by lazy {
+    private val locationManager: LocationManager by lazy {
         context.getSystemService(LOCATION_SERVICE) as LocationManager
     }
 
-    val notificationManager: NotificationManager by lazy {
+    private val notificationManager: NotificationManager by lazy {
         context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     }
 
-    val coroutineScope: CoroutineScope = this
+    private val coroutineScope: CoroutineScope = this
 
     val bluetoothClient: BluetoothClient
         get() = BluetoothClient(bluetoothManager, json)

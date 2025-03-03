@@ -3,6 +3,7 @@ package ru.debajo.locationprovider
 import android.annotation.SuppressLint
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,9 +13,28 @@ import kotlinx.coroutines.launch
 internal class MainViewModel : ViewModel() {
 
     private val bluetoothEndpoints: BluetoothEndpoints by lazy { Di.bluetoothEndpoints }
+    private val preferences: Preferences by lazy { Di.preferences }
 
     private val _state: MutableStateFlow<MainState> = MutableStateFlow(MainState())
     val state: StateFlow<MainState> = _state.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            preferences.isProvider.state.collect { isProvider ->
+                updateState {
+                    copy(isProvider = isProvider)
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            preferences.selectedReceiver.state.collect { selectedReceiver ->
+                updateState {
+                    copy(selectedEndpointAddress = selectedReceiver)
+                }
+            }
+        }
+    }
 
     @SuppressLint("MissingPermission")
     fun onPermissionsGranted() {
@@ -27,21 +47,29 @@ internal class MainViewModel : ViewModel() {
     }
 
     fun onProviderSelected() {
-        updateState {
-            copy(isProvider = true)
+        viewModelScope.launch(Dispatchers.Default) {
+            preferences.isProvider.put(true)
         }
     }
 
     fun onReceiverSelected() {
-        updateState {
-            copy(isProvider = false)
+        viewModelScope.launch(Dispatchers.Default) {
+            preferences.isProvider.put(false)
         }
     }
 
     fun onEndpointSelected(endpoint: BluetoothEndpoint) {
-        updateState {
-            copy(selectedEndpoint = endpoint)
+        viewModelScope.launch(Dispatchers.Default) {
+            preferences.selectedReceiver.put(endpoint.address)
         }
+    }
+
+    fun start() {
+
+    }
+
+    fun stop() {
+
     }
 
     private inline fun updateState(block: MainState.() -> MainState) {

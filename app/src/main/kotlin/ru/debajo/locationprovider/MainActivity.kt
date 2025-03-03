@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -108,13 +109,32 @@ internal class MainActivity : ComponentActivity() {
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(Modifier.size(10.dp))
                 RadioButtons(state)
                 if (state.isProvider) {
                     Spacer(Modifier.size(20.dp))
-                    AvailableEndpoints(state)
+                    AvailableEndpoints(state, modifier = Modifier.weight(1f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
+                Row {
+                    Button(
+                        onClick = { viewModel.start() },
+                        enabled = state.canStart
+                    ) {
+                        Text("Старт")
+                    }
+                    Spacer(Modifier.size(20.dp))
+                    Button(
+                        onClick = { viewModel.stop() },
+                        enabled = state.canStop
+                    ) {
+                        Text("Стоп")
+                    }
+                }
+                Spacer(Modifier.size(20.dp))
             }
         }
     }
@@ -169,7 +189,7 @@ internal class MainActivity : ComponentActivity() {
                     val endpoint = state.availableEndpoints[index]
                     TextRadioButton(
                         text = endpoint.name,
-                        selected = endpoint.address == state.selectedEndpoint?.address,
+                        selected = endpoint.address == state.selectedEndpointAddress,
                         onClick = { viewModel.onEndpointSelected(endpoint) },
                         modifier = Modifier.fillMaxWidth(),
                     )
