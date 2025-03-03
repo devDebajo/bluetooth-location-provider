@@ -1,7 +1,13 @@
 package ru.debajo.locationprovider
 
-import android.bluetooth.BluetoothDevice
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 internal class BluetoothEndpoint(
-    val bluetoothDevice: BluetoothDevice,
+    @SerialName("address")
+    val address: String,
+
+    @SerialName("name")
+    val name: String,
 )

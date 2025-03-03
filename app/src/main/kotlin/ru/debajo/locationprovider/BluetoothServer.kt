@@ -1,8 +1,8 @@
 package ru.debajo.locationprovider
 
 import android.Manifest
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothServerSocket
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
@@ -23,8 +23,8 @@ internal class BluetoothServer(
     private val bluetoothManager: BluetoothManager,
     private val coroutineScope: CoroutineScope,
 ) {
-    private val bluetoothAdapter: BluetoothAdapter by lazy { bluetoothManager.adapter }
     private var job: Job? = null
+    private var serverSocket: BluetoothServerSocket? = null
 
     private val _messages: MutableSharedFlow<String> = MutableSharedFlow()
     val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -37,8 +37,9 @@ internal class BluetoothServer(
         job?.cancel()
         job = coroutineScope.launch(Dispatchers.IO) {
             val serverSocket = runCatchingAsync {
-                bluetoothAdapter.listenUsingRfcommWithServiceRecord("BluetoothServer", address)
+                bluetoothManager.adapter.listenUsingRfcommWithServiceRecord(bluetoothServerName, address)
             }.getOrNull()
+            this@BluetoothServer.serverSocket = serverSocket
 
             if (serverSocket == null) {
                 _isRunning.value = false
@@ -61,13 +62,16 @@ internal class BluetoothServer(
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun stop() {
         job?.cancel()
         job = null
+        runCatchingAsync { serverSocket?.close() }.getOrNull()
         _isRunning.value = false
     }
 
     companion object {
+        val bluetoothServerName: String = "BluetoothServer"
         val bluetoothServerUuid: UUID = UUID.fromString("cb9121b3-243c-46a9-b114-d1c72c51578a")
     }
 }

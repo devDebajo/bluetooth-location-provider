@@ -6,15 +6,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.Json
 import java.io.BufferedWriter
 
 internal class BluetoothConnection(
     private val endpoint: BluetoothEndpoint,
     private val socket: BluetoothSocket,
+    private val json: Json,
 ) {
     private val writer: BufferedWriter = socket.outputStream.bufferedWriter()
     private val _isConnected: MutableStateFlow<Boolean> = MutableStateFlow(true)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
+    suspend fun <T> write(obj: T, serializer: KSerializer<T>): Boolean {
+        return write(json.encodeToString(serializer, obj))
+    }
 
     suspend fun write(message: String): Boolean {
         if (!_isConnected.value) {

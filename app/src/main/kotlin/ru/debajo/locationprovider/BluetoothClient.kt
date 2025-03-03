@@ -1,19 +1,18 @@
 package ru.debajo.locationprovider
 
 import android.Manifest
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 internal class BluetoothClient(
     private val bluetoothManager: BluetoothManager,
+    private val json: Json,
 ) {
-    private val bluetoothAdapter: BluetoothAdapter by lazy { bluetoothManager.adapter }
-
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun connect(
         endpoint: BluetoothEndpoint,
@@ -28,14 +27,14 @@ internal class BluetoothClient(
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private suspend fun connectUnsafe(serverAddress: UUID, endpoint: BluetoothEndpoint): BluetoothConnection? {
-        val device = bluetoothAdapter.bondedDevices.firstOrNull { it.address == endpoint.bluetoothDevice.address } ?: return null
+        val device = bluetoothManager.adapter.bondedDevices.firstOrNull { it.address == endpoint.address } ?: return null
         yield()
-        val socket = runCatching {
+        val socket = runCatchingAsync {
             val socket = device.createRfcommSocketToServiceRecord(serverAddress)
             yield()
             socket.connect()
             socket
         }.getOrNull() ?: return null
-        return BluetoothConnection(endpoint, socket)
+        return BluetoothConnection(endpoint, socket, json)
     }
 }
