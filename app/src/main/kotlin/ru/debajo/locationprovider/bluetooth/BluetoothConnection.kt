@@ -12,7 +12,6 @@ import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.io.BufferedWriter
 
 internal class BluetoothConnection(
-    private val endpoint: BluetoothEndpoint,
     private val socket: BluetoothSocket,
     private val json: Json,
 ) {

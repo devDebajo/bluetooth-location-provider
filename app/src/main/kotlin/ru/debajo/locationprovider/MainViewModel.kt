@@ -7,15 +7,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.debajo.locationprovider.bluetooth.BluetoothEndpoint
 import ru.debajo.locationprovider.bluetooth.BluetoothEndpoints
+import ru.debajo.locationprovider.location.ProviderLocationForegroundService
+import ru.debajo.locationprovider.location.ReceiverLocationForegroundService
 import ru.debajo.locationprovider.utils.Di
 import ru.debajo.locationprovider.utils.Preferences
 
 internal class MainViewModel : ViewModel() {
 
+    private val appServiceState: AppServiceState by lazy { Di.appServiceState }
     private val bluetoothEndpoints: BluetoothEndpoints by lazy { Di.bluetoothEndpoints }
     private val preferences: Preferences by lazy { Di.preferences }
 
@@ -35,6 +39,17 @@ internal class MainViewModel : ViewModel() {
             preferences.selectedReceiver.state.collect { selectedReceiver ->
                 updateState {
                     copy(selectedEndpointAddress = selectedReceiver)
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                appServiceState.isProviderServiceRunning,
+                appServiceState.isReceiverServiceRunning,
+            ) { a, b -> a || b }.collect { isRunning ->
+                updateState {
+                    copy(isRunning = isRunning)
                 }
             }
         }
@@ -69,11 +84,19 @@ internal class MainViewModel : ViewModel() {
     }
 
     fun start() {
-
+        if (state.value.isProvider) {
+            ProviderLocationForegroundService.start(Di.context)
+        } else {
+            ReceiverLocationForegroundService.start(Di.context)
+        }
     }
 
     fun stop() {
-
+        if (state.value.isProvider) {
+            ProviderLocationForegroundService.stop(Di.context)
+        } else {
+            ReceiverLocationForegroundService.stop(Di.context)
+        }
     }
 
     private inline fun updateState(block: MainState.() -> MainState) {

@@ -16,19 +16,19 @@ internal class BluetoothClient(
 ) {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun connect(
-        endpoint: BluetoothEndpoint,
+        endpointAddress: String,
         serverAddress: UUID = BluetoothServer.bluetoothServerUuid,
     ): BluetoothConnection? {
         return runCatchingAsync {
             withContext(Dispatchers.IO) {
-                connectUnsafe(serverAddress, endpoint)
+                connectUnsafe(serverAddress, endpointAddress)
             }
         }.getOrNull()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    private suspend fun connectUnsafe(serverAddress: UUID, endpoint: BluetoothEndpoint): BluetoothConnection? {
-        val device = bluetoothManager.adapter.bondedDevices.firstOrNull { it.address == endpoint.address } ?: return null
+    private suspend fun connectUnsafe(serverAddress: UUID, endpointAddress: String): BluetoothConnection? {
+        val device = bluetoothManager.adapter.bondedDevices.firstOrNull { it.address == endpointAddress } ?: return null
         yield()
         val socket = runCatchingAsync {
             val socket = device.createRfcommSocketToServiceRecord(serverAddress)
@@ -36,6 +36,6 @@ internal class BluetoothClient(
             socket.connect()
             socket
         }.getOrNull() ?: return null
-        return BluetoothConnection(endpoint, socket, json)
+        return BluetoothConnection(socket, json)
     }
 }
