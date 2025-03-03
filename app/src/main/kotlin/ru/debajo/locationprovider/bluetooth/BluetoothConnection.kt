@@ -1,4 +1,4 @@
-package ru.debajo.locationprovider
+package ru.debajo.locationprovider.bluetooth
 
 import android.bluetooth.BluetoothSocket
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.io.BufferedWriter
 
 internal class BluetoothConnection(

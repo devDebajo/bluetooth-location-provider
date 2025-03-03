@@ -1,6 +1,7 @@
 package ru.debajo.locationprovider
 
 import androidx.compose.runtime.Immutable
+import ru.debajo.locationprovider.bluetooth.BluetoothEndpoint
 
 @Immutable
 internal data class MainState(

@@ -1,10 +1,11 @@
-package ru.debajo.locationprovider
+package ru.debajo.locationprovider.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ru.debajo.locationprovider.utils.runCatchingAsync
 
 internal class BluetoothEndpoints(
     private val bluetoothManager: BluetoothManager,

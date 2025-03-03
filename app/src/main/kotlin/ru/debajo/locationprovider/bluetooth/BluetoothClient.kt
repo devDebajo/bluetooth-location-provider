@@ -1,4 +1,4 @@
-package ru.debajo.locationprovider
+package ru.debajo.locationprovider.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
+import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.util.UUID
 
 internal class BluetoothClient(

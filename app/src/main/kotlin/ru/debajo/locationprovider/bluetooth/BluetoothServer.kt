@@ -1,4 +1,4 @@
-package ru.debajo.locationprovider
+package ru.debajo.locationprovider.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.util.UUID
 
 internal class BluetoothServer(

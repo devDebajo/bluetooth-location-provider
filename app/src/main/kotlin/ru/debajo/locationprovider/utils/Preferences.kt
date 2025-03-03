@@ -1,4 +1,4 @@
-package ru.debajo.locationprovider
+package ru.debajo.locationprovider.utils
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow

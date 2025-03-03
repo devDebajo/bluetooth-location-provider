@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.debajo.locationprovider.bluetooth.BluetoothEndpoint
+import ru.debajo.locationprovider.bluetooth.BluetoothEndpoints
+import ru.debajo.locationprovider.utils.Di
+import ru.debajo.locationprovider.utils.Preferences
 
 internal class MainViewModel : ViewModel() {
 
