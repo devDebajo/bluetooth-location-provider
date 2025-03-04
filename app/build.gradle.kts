@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.accompanist.permissions)
     implementation(libs.kotlinx.serialization)
+    implementation(libs.play.services.location)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

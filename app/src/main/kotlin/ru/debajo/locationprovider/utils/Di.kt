@@ -8,6 +8,8 @@ import android.content.Context.LOCATION_SERVICE
 import android.content.Context.NOTIFICATION_SERVICE
 import android.content.SharedPreferences
 import android.location.LocationManager
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
@@ -41,6 +43,10 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
 
     val locationManager: LocationManager by lazy {
         context.getSystemService(LOCATION_SERVICE) as LocationManager
+    }
+
+    val fusedLocationClient: FusedLocationProviderClient by lazy {
+        LocationServices.getFusedLocationProviderClient(context)
     }
 
     val mockLocationManager: MockLocationManager

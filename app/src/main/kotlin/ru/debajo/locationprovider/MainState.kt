@@ -10,6 +10,11 @@ internal data class MainState(
     val selectedEndpointAddress: String? = null,
     val isRunning: Boolean = false,
 ) {
-    val canStart: Boolean = !isRunning && availableEndpoints.any { it.address == selectedEndpointAddress }
+    val canStart: Boolean = if (isProvider) {
+        !isRunning && availableEndpoints.any { it.address == selectedEndpointAddress }
+    } else {
+        !isRunning
+    }
+
     val canStop: Boolean = isRunning
 }

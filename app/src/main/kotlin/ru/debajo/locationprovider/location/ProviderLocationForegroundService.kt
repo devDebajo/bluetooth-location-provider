@@ -6,9 +6,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.IBinder
+import android.os.Looper
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.Job
@@ -28,11 +32,12 @@ import ru.debajo.locationprovider.utils.Preferences
 import ru.debajo.locationprovider.utils.addNotificationChannel
 import ru.debajo.locationprovider.utils.createServiceNotification
 
+
 internal class ProviderLocationForegroundService : Service(), CoroutineScope by CoroutineScope(Main) {
 
     private val appServiceState: AppServiceState by lazy { Di.appServiceState }
     private val notificationManager: NotificationManager by lazy { Di.notificationManager }
-    private val locationManager: LocationManager by lazy { Di.locationManager }
+    private val fusedLocationClient: FusedLocationProviderClient by lazy { Di.fusedLocationClient }
     private val bluetoothClient: BluetoothClient by lazy { Di.bluetoothClient }
     private val preferences: Preferences by lazy { Di.preferences }
     private var job: Job? = null
@@ -70,11 +75,21 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
     @SuppressLint("MissingPermission")
     private fun listenLocation(): Flow<Location> {
         return callbackFlow {
-            val locationListener = LocationListener {
-                trySend(it)
+            val locationRequest = LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                10000
+            )
+                .setMinUpdateIntervalMillis(5000)
+                .build()
+
+            val locationCallback = object : LocationCallback() {
+                override fun onLocationResult(locationResult: LocationResult) {
+                    locationResult.lastLocation?.let { trySend(it) }
+                }
             }
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 10f, locationListener)
-            awaitClose { locationManager.removeUpdates(locationListener) }
+
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+            awaitClose { fusedLocationClient.removeLocationUpdates(locationCallback) }
         }
     }
 
