@@ -15,24 +15,21 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import ru.debajo.locationprovider.AppServiceState
 import ru.debajo.locationprovider.bluetooth.BluetoothClient
-import ru.debajo.locationprovider.bluetooth.BluetoothConnection
 import ru.debajo.locationprovider.utils.Di
 import ru.debajo.locationprovider.utils.Preferences
 import ru.debajo.locationprovider.utils.addNotificationChannel
 import ru.debajo.locationprovider.utils.createServiceNotification
 
-
+@SuppressLint("MissingPermission")
 internal class ProviderLocationForegroundService : Service(), CoroutineScope by CoroutineScope(Main) {
 
     private val appServiceState: AppServiceState by lazy { Di.appServiceState }
@@ -40,39 +37,36 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
     private val fusedLocationClient: FusedLocationProviderClient by lazy { Di.fusedLocationClient }
     private val bluetoothClient: BluetoothClient by lazy { Di.bluetoothClient }
     private val preferences: Preferences by lazy { Di.preferences }
-    private var job: Job? = null
-    private var lastConnection: BluetoothConnection? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @SuppressLint("MissingPermission")
     override fun onCreate() {
         super.onCreate()
         notificationManager.addNotificationChannel()
         startForeground(NOTIFICATION_ID, createServiceNotification(this))
 
-        job?.cancel()
-        job = launch {
+        launch {
             runListening()
             stopSelf()
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private suspend fun runListening() {
-        val receiverAddress = preferences.selectedReceiver.state.value ?: return
-        lastConnection?.close()
-        val connection = bluetoothClient.connect(receiverAddress) ?: return
-        lastConnection = connection
-
-        appServiceState.isProviderServiceRunning.value = true
-        listenLocation()
-            .map { connection.write(it.toRemote(), RemoteLocation.serializer()) }
-            .takeWhile { it }
-            .collect()
+    override fun onDestroy() {
+        super.onDestroy()
+        appServiceState.isProviderServiceRunning.value = false
+        cancel()
     }
 
-    @SuppressLint("MissingPermission")
+    private suspend fun runListening() {
+        val receiverAddress = preferences.selectedReceiver.state.value ?: return
+        bluetoothClient.connect(receiverAddress) {
+            appServiceState.isProviderServiceRunning.value = true
+            listenLocation()
+                .map { write(it.toRemote(), RemoteLocation.serializer()) }
+                .collect()
+        }
+    }
+
     private fun listenLocation(): Flow<Location> {
         return callbackFlow {
             val locationRequest = LocationRequest.Builder(
@@ -90,16 +84,6 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
 
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
             awaitClose { fusedLocationClient.removeLocationUpdates(locationCallback) }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        appServiceState.isProviderServiceRunning.value = false
-        launch {
-            lastConnection?.close()
-        }.invokeOnCompletion {
-            cancel()
         }
     }
 

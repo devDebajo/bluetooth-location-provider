@@ -8,8 +8,8 @@ import android.content.Intent
 import android.os.IBinder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import ru.debajo.locationprovider.AppServiceState
@@ -26,7 +26,6 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
     private val bluetoothServer: BluetoothServer by lazy { Di.bluetoothServer }
     private val mockLocationManager: MockLocationManager by lazy { Di.mockLocationManager }
     private val json: Json by lazy { Di.json }
-    private var job: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -37,16 +36,16 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
         startForeground(NOTIFICATION_ID, createServiceNotification(this))
 
         appServiceState.isReceiverServiceRunning.value = true
-        bluetoothServer.start()
         mockLocationManager.start()
-        job?.cancel()
-        job = launch {
-            bluetoothServer.messages.collect { message ->
-                val location = runCatchingAsync { json.decodeFromString(RemoteLocation.serializer(), message) }.getOrNull()
-                if (location != null) {
+
+        launch {
+            bluetoothServer.observeMessages()
+                .mapNotNull { message ->
+                    runCatchingAsync { json.decodeFromString(RemoteLocation.serializer(), message) }.getOrNull()
+                }
+                .collect { location ->
                     mockLocationManager.mockLocation(location)
                 }
-            }
         }
     }
 
@@ -54,9 +53,8 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
     override fun onDestroy() {
         super.onDestroy()
         appServiceState.isReceiverServiceRunning.value = false
-        bluetoothServer.stop()
-        mockLocationManager.stop()
         cancel()
+        mockLocationManager.stop()
     }
 
     companion object {

@@ -3,72 +3,88 @@ package ru.debajo.locationprovider.bluetooth
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
-import android.util.Log
+import android.bluetooth.BluetoothSocket
 import androidx.annotation.RequiresPermission
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.util.UUID
 
 internal class BluetoothServer(
     private val bluetoothManager: BluetoothManager,
-    private val coroutineScope: CoroutineScope,
 ) {
-    private var job: Job? = null
-    private var serverSocket: BluetoothServerSocket? = null
-
-    private val _messages: MutableSharedFlow<String> = MutableSharedFlow()
-    val messages: SharedFlow<String> = _messages.asSharedFlow()
-
-    private val _isRunning: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
-
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun start(address: UUID = bluetoothServerUuid) {
-        job?.cancel()
-        job = coroutineScope.launch(Dispatchers.IO) {
+    fun observeMessages(address: UUID = bluetoothServerUuid): Flow<String> {
+        return callbackFlow {
             val serverSocket = runCatchingAsync {
                 bluetoothManager.adapter.listenUsingRfcommWithServiceRecord(bluetoothServerName, address)
             }.getOrNull()
-            this@BluetoothServer.serverSocket = serverSocket
 
-            if (serverSocket == null) {
-                _isRunning.value = false
-            } else {
-                _isRunning.value = true
-                while (true) {
-                    val socket = runCatchingAsync { serverSocket.accept() }.getOrNull()
+            val job = launch {
+                serverSocket?.listen()?.collect { trySend(it) }
+            }
+
+            awaitClose {
+                job.cancel()
+                runCatchingAsync { serverSocket?.close() }
+            }
+        }.flowOn(Dispatchers.IO)
+    }
+
+    private fun BluetoothServerSocket.listen(): Flow<String> {
+        return callbackFlow {
+            val job = launch {
+                while (currentCoroutineContext().isActive) {
+                    val socket = runCatchingAsync { awaitSocket() }.getOrNull()
                     if (socket == null) {
-                        Log.e("BluetoothServer", "serverSocket.accept error")
                         delay(1000)
                         continue
                     }
-                    runCatchingAsync {
-                        socket.inputStream.bufferedReader().lineSequence().asFlow().collect { message ->
-                            _messages.emit(message)
+
+                    socket.listen().collect { trySend(it) }
+                }
+            }
+
+            awaitClose { job.cancel() }
+        }
+    }
+
+    private fun BluetoothSocket.listen(): Flow<String> {
+        val socket = this
+        return callbackFlow {
+            val job = launch {
+                runCatchingAsync {
+                    socket.use {
+                        for (message in it.inputStream.bufferedReader().lineSequence()) {
+                            trySend(message)
                         }
                     }
                 }
             }
+
+            awaitClose {
+                job.cancel()
+                runCatchingAsync { socket.close() }
+            }
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun stop() {
-        job?.cancel()
-        job = null
-        runCatchingAsync { serverSocket?.close() }.getOrNull()
-        _isRunning.value = false
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun BluetoothServerSocket.awaitSocket(): BluetoothSocket {
+        return suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { close() }
+            val socket = accept()
+            continuation.resume(socket) { close() }
+        }
     }
 
     companion object {

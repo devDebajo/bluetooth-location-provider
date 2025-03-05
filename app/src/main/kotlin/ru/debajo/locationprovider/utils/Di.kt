@@ -62,7 +62,7 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
         get() = BluetoothClient(bluetoothManager, json)
 
     val bluetoothServer: BluetoothServer
-        get() = BluetoothServer(bluetoothManager, coroutineScope)
+        get() = BluetoothServer(bluetoothManager)
 
     val bluetoothEndpoints: BluetoothEndpoints
         get() = BluetoothEndpoints(bluetoothManager)
