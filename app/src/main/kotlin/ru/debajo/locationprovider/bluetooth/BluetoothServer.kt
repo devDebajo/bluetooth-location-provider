@@ -23,7 +23,7 @@ internal class BluetoothServer(
     private val bluetoothManager: BluetoothManager,
 ) {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun observeMessages(address: UUID = bluetoothServerUuid): Flow<String> {
+    fun observeMessages(address: UUID = bluetoothServerUuid): Flow<Message> {
         return callbackFlow {
             val serverSocket = runCatchingAsync {
                 bluetoothManager.adapter.listenUsingRfcommWithServiceRecord(bluetoothServerName, address)
@@ -40,7 +40,7 @@ internal class BluetoothServer(
         }.flowOn(Dispatchers.IO)
     }
 
-    private fun BluetoothServerSocket.listen(): Flow<String> {
+    private fun BluetoothServerSocket.listen(): Flow<Message> {
         return callbackFlow {
             val job = launch {
                 while (currentCoroutineContext().isActive) {
@@ -50,7 +50,9 @@ internal class BluetoothServer(
                         continue
                     }
 
-                    socket.listen().collect { trySend(it) }
+                    trySend(Message.Connected)
+                    socket.listen().collect { trySend(Message.TextMessage(it)) }
+                    trySend(Message.Disconnected)
                 }
             }
 
@@ -69,6 +71,7 @@ internal class BluetoothServer(
                         }
                     }
                 }
+                close()
             }
 
             awaitClose {
@@ -85,6 +88,12 @@ internal class BluetoothServer(
             val socket = accept()
             continuation.resume(socket) { close() }
         }
+    }
+
+    sealed interface Message {
+        data object Connected : Message
+        class TextMessage(val text: String) : Message
+        data object Disconnected : Message
     }
 
     companion object {

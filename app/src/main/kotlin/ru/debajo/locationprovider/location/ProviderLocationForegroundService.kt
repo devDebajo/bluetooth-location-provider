@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import ru.debajo.locationprovider.AppServiceState
 import ru.debajo.locationprovider.bluetooth.BluetoothClient
 import ru.debajo.locationprovider.utils.Di
@@ -67,10 +69,32 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
         val receiverAddress = preferences.selectedReceiver.state.value ?: return
         bluetoothClient.connect(receiverAddress) {
             appServiceState.isProviderServiceRunning.value = true
+            updateNotification(isConnected = true)
             listenLocation()
-                .map { write(it.toRemote(), RemoteLocation.serializer()) }
+                .map {
+                    updateNotification(
+                        isConnected = true,
+                        lastUpdate = Clock.System.now(),
+                    )
+                    write(it.toRemote(), RemoteLocation.serializer())
+                }
                 .collect()
         }
+    }
+
+    private fun updateNotification(
+        isConnected: Boolean = false,
+        lastUpdate: Instant? = null,
+    ) {
+        notificationManager.notify(
+            NOTIFICATION_ID,
+            createServiceNotification(
+                context = this,
+                isProvider = true,
+                isConnected = isConnected,
+                lastUpdate = lastUpdate,
+            )
+        )
     }
 
     private fun listenLocation(): Flow<Location> {

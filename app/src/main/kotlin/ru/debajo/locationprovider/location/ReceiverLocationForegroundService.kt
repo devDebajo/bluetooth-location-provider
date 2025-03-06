@@ -9,8 +9,9 @@ import android.os.IBinder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 import ru.debajo.locationprovider.AppServiceState
 import ru.debajo.locationprovider.bluetooth.BluetoothServer
@@ -45,12 +46,37 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
         mockLocationManager.start()
 
         launch {
+            var lastUpdate: Instant? = null
             bluetoothServer.observeMessages()
-                .mapNotNull { message ->
-                    runCatchingAsync { json.decodeFromString(RemoteLocation.serializer(), message) }.getOrNull()
-                }
-                .collect { location ->
-                    mockLocationManager.mockLocation(location)
+                .collect { message ->
+                    when (message) {
+                        is BluetoothServer.Message.Connected -> {
+                            updateNotification(
+                                isConnected = true,
+                                lastUpdate = lastUpdate,
+                            )
+                        }
+
+                        is BluetoothServer.Message.Disconnected -> {
+                            updateNotification(
+                                isConnected = false,
+                                lastUpdate = lastUpdate,
+                            )
+                        }
+
+                        is BluetoothServer.Message.TextMessage -> {
+                            val location = runCatchingAsync { json.decodeFromString(RemoteLocation.serializer(), message.text) }.getOrNull()
+                            if (location != null) {
+                                lastUpdate = Clock.System.now()
+                                mockLocationManager.mockLocation(location)
+                            }
+
+                            updateNotification(
+                                isConnected = true,
+                                lastUpdate = lastUpdate,
+                            )
+                        }
+                    }
                 }
         }
     }
@@ -61,6 +87,21 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
         appServiceState.isReceiverServiceRunning.value = false
         cancel()
         mockLocationManager.stop()
+    }
+
+    private fun updateNotification(
+        isConnected: Boolean = false,
+        lastUpdate: Instant? = null,
+    ) {
+        notificationManager.notify(
+            NOTIFICATION_ID,
+            createServiceNotification(
+                context = this,
+                isProvider = false,
+                isConnected = isConnected,
+                lastUpdate = lastUpdate,
+            )
+        )
     }
 
     companion object {

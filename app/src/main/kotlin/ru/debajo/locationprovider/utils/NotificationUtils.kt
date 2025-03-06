@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 private const val ChannelId: String = "location_service"
 
 internal fun NotificationManager.addNotificationChannel() {
-    val importance = NotificationManager.IMPORTANCE_HIGH
+    val importance = NotificationManager.IMPORTANCE_DEFAULT
     val systemChannel = NotificationChannel(
         ChannelId,
         "location_service",
@@ -34,7 +34,7 @@ internal fun createServiceNotification(
     context: Context,
     isProvider: Boolean,
     isConnected: Boolean = false,
-    lastUpdate: Instant? = Clock.System.now(),
+    lastUpdate: Instant? = null,
 ): Notification {
     val text = buildString {
         if (isConnected) {
