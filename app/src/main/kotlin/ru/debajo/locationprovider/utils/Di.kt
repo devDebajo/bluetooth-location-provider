@@ -1,5 +1,6 @@
 package ru.debajo.locationprovider.utils
 
+import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -13,6 +14,7 @@ import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
+import ru.debajo.locationprovider.ActivityHolder
 import ru.debajo.locationprovider.App
 import ru.debajo.locationprovider.AppServiceState
 import ru.debajo.locationprovider.bluetooth.BluetoothClient
@@ -33,6 +35,10 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
 
     private val sharedPreferences: SharedPreferences by lazy {
         context.getSharedPreferences("location_provider_prefs", Context.MODE_PRIVATE)
+    }
+
+    val opsManager: AppOpsManager by lazy {
+        context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     }
 
     val preferences: Preferences by lazy { Preferences(sharedPreferences) }
@@ -68,4 +74,6 @@ internal object Di : CoroutineScope by CoroutineScope(Dispatchers.Main) {
         get() = BluetoothEndpoints(bluetoothManager)
 
     val appServiceState: AppServiceState by lazy { AppServiceState() }
+
+    val activityHolder: ActivityHolder by lazy { ActivityHolder() }
 }

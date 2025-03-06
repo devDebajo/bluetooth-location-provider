@@ -1,7 +1,8 @@
 package ru.debajo.locationprovider
 
-import android.Manifest
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,56 +18,92 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.accompanist.permissions.rememberPermissionState
 import ru.debajo.locationprovider.ui.theme.LocationProviderTheme
+import ru.debajo.locationprovider.utils.Di
 
 internal class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private val activityHolder: ActivityHolder by lazy { Di.activityHolder }
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        activityHolder.register(this)
         enableEdgeToEdge()
 
         setContent {
-            LocationProviderTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val state = rememberMultiplePermissionsState(PermissionsList) { map ->
-                        if (map.all { it.value }) {
-                            viewModel.onPermissionsGranted()
-                        }
-                    }
-                    LaunchedEffect(state) {
-                        if (state.permissions.any { !it.status.isGranted }) {
-                            state.launchMultiplePermissionRequest()
-                        } else {
-                            viewModel.onPermissionsGranted()
-                        }
-                    }
+            val bluetoothPermissionsState = rememberMultiplePermissionsState(PermissionUtils.BluetoothPermissionsList) { state ->
+                viewModel.onBluetoothPermissionsChanged(state.all { it.value })
+            }
 
-                    val hasAllPermissions = state.permissions.all { it.status.isGranted }
-                    if (hasAllPermissions) {
-                        PermittedContent(innerPadding)
+            val notificationsPermissionState = rememberPermissionState(PermissionUtils.NotificationsPermission) {
+                viewModel.onNotificationsPermissionChanged(it)
+            }
+
+            val locationPermissionsState = rememberMultiplePermissionsState(PermissionUtils.LocationPermissionsList) { state ->
+                viewModel.onLocationPermissionChanged(state.all { it.value })
+            }
+
+            val backgroundLocationPermissionsState = rememberPermissionState(PermissionUtils.BackgroundLocationPermission) {
+                viewModel.onBackgroundLocationPermissionChanged(it)
+            }
+
+            val hostState = remember { SnackbarHostState() }
+            LaunchedEffect(
+                viewModel,
+                hostState,
+                bluetoothPermissionsState,
+                notificationsPermissionState,
+                locationPermissionsState,
+                backgroundLocationPermissionsState
+            ) {
+                viewModel.news.collect { news ->
+                    when (news) {
+                        is MainNews.ShowSnackBar -> hostState.showSnackbar(news.text)
+                        is MainNews.RequestBluetoothPermission -> bluetoothPermissionsState.launchMultiplePermissionRequest()
+                        is MainNews.RequestLocationPermission -> locationPermissionsState.launchMultiplePermissionRequest()
+                        is MainNews.RequestBackgroundLocationPermission -> backgroundLocationPermissionsState.launchPermissionRequest()
+                        is MainNews.RequestNotificationsPermission -> notificationsPermissionState.launchPermissionRequest()
                     }
                 }
             }
+
+            LocationProviderTheme {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(hostState) },
+                ) { innerPadding ->
+                    PermittedContent(innerPadding)
+                }
+            }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshMockPermission()
     }
 
     @Composable
@@ -84,12 +121,17 @@ internal class MainActivity : ComponentActivity() {
             ) {
                 Spacer(Modifier.size(10.dp))
                 RadioButtons(state)
-                if (state.isProvider) {
-                    Spacer(Modifier.size(20.dp))
-                    AvailableEndpoints(state, modifier = Modifier.weight(1f))
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
+                when (val localState = state) {
+                    is MainState.Provider -> {
+                        Spacer(Modifier.size(20.dp))
+                        AvailableEndpoints(localState, modifier = Modifier.weight(1f))
+                    }
+
+                    is MainState.Receiver -> {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
+
                 Row {
                     Button(
                         onClick = { viewModel.start() },
@@ -107,6 +149,11 @@ internal class MainActivity : ComponentActivity() {
                 }
                 Spacer(Modifier.size(20.dp))
             }
+        }
+
+        val stateReceiver = state as? MainState.Receiver
+        if (stateReceiver?.showMockPermissionDialog == true) {
+            MockLocationDialog()
         }
     }
 
@@ -127,14 +174,14 @@ internal class MainActivity : ComponentActivity() {
             Spacer(Modifier.size(8.dp))
             TextRadioButton(
                 text = "Приемник геолокации",
-                selected = !state.isProvider,
+                selected = state is MainState.Receiver,
                 onClick = { viewModel.onReceiverSelected() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isRunning,
             )
             TextRadioButton(
                 text = "Передатчик геолокации",
-                selected = state.isProvider,
+                selected = state is MainState.Provider,
                 onClick = { viewModel.onProviderSelected() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isRunning,
@@ -144,7 +191,7 @@ internal class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AvailableEndpoints(
-        state: MainState,
+        state: MainState.Provider,
         modifier: Modifier = Modifier,
     ) {
         Column(
@@ -197,14 +244,37 @@ internal class MainActivity : ComponentActivity() {
         }
     }
 
-    private companion object {
-        val PermissionsList: List<String> = listOf(
-            Manifest.permission.POST_NOTIFICATIONS,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-            Manifest.permission.BLUETOOTH,
-            Manifest.permission.BLUETOOTH_CONNECT,
+    @Composable
+    private fun MockLocationDialog() {
+        AlertDialog(
+            onDismissRequest = { viewModel.hideMockLocationDialog() },
+            title = {
+                Text("Нужен доступ к подмене геолокации")
+            },
+            text = {
+                Text("Для работы в режиме приемника нужно разрешить приложению подменять геолокацию. Чтобы это сделать нужно включить режим разработчика и в нем выбрать данное приложение как провайдер фиктивного местоположения")
+            },
+            confirmButton = {
+                TextButton({
+                    viewModel.hideMockLocationDialog()
+                    openMockLocationSettings()
+                }) {
+                    Text("Перейти в настройки")
+                }
+            },
+            dismissButton = {
+                TextButton({ viewModel.hideMockLocationDialog() }) {
+                    Text("Отмена")
+                }
+            },
         )
+    }
+
+    private fun openMockLocationSettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+        }.onFailure {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
     }
 }

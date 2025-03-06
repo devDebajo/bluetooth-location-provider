@@ -33,11 +33,6 @@
         </activity>
 
         <service
-            android:name=".MockLocationForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
-
-        <service
             android:name=".location.ProviderLocationForegroundService"
             android:exported="false"
             android:foregroundServiceType="location" />
