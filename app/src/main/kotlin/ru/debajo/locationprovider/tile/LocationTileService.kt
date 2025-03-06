@@ -5,9 +5,11 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import ru.debajo.locationprovider.AppServiceState
 import ru.debajo.locationprovider.MainActivity
@@ -29,6 +31,16 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
     override fun onStartListening() {
         job?.cancel()
         job = launch {
+            combine(
+                preferences.isProvider.state,
+                appServiceState.observeServiceRunning(),
+            ) { isProvider, isRunning -> isProvider to isRunning }.collect { (isProvider, isRunning) ->
+                syncTileState(
+                    isProvider = isProvider,
+                    isRunning = isRunning
+                )
+            }
+
             launch {
                 preferences.isProvider.state.collect { isProvider ->
                     qsTile.label = if (isProvider) "Передатчик" else "Приемник"
@@ -47,8 +59,7 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
     }
 
     override fun onTileAdded() {
-        qsTile.state = if (appServiceState.isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        qsTile.updateTile()
+        syncTileState()
     }
 
     override fun onClick() {
@@ -56,15 +67,13 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
             when (qsTile.state) {
                 Tile.STATE_ACTIVE -> {
                     stop()
-                    qsTile.state = Tile.STATE_INACTIVE
-                    qsTile.updateTile()
+                    syncTileState()
                 }
 
                 Tile.STATE_INACTIVE -> {
                     if (canStart()) {
                         start()
-                        qsTile.state = Tile.STATE_ACTIVE
-                        qsTile.updateTile()
+                        syncTileState()
                     } else {
                         openMainActivity()
                     }
@@ -74,6 +83,7 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
     }
 
     override fun onStopListening() {
+        Log.d("yopta", "onStopListening")
         job?.cancel()
     }
 
@@ -97,6 +107,16 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
         } else {
             PermissionUtils.hasPermissionsForReceiver()
         }
+    }
+
+    private fun syncTileState(
+        isProvider: Boolean = preferences.isProvider.get(),
+        isRunning: Boolean = appServiceState.isRunning,
+    ) {
+        qsTile.label = if (isProvider) "Передатчик" else "Приемник"
+        qsTile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        qsTile.subtitle = if (isRunning) "Вкл." else "Откл."
+        qsTile.updateTile()
     }
 
     private fun start() {
