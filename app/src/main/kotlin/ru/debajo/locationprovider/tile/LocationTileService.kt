@@ -29,9 +29,19 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
     override fun onStartListening() {
         job?.cancel()
         job = launch {
-            appServiceState.observeServiceRunning().collect { isRunning ->
-                qsTile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-                qsTile.updateTile()
+            launch {
+                preferences.isProvider.state.collect { isProvider ->
+                    qsTile.label = if (isProvider) "Передатчик" else "Приемник"
+                    qsTile.updateTile()
+                }
+            }
+
+            launch {
+                appServiceState.observeServiceRunning().collect { isRunning ->
+                    qsTile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+                    qsTile.subtitle = if (isRunning) "Вкл." else "Откл."
+                    qsTile.updateTile()
+                }
             }
         }
     }
