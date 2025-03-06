@@ -30,6 +30,20 @@ object PermissionUtils {
 
     fun hasNotificationsPermission(): Boolean = hasPermission(NotificationsPermission)
 
+    fun hasPermissionsForProvider(): Boolean {
+        return hasNotificationsPermission() &&
+                hasBluetoothPermissions() &&
+                hasLocationPermissions() &&
+                hasBackgroundLocationPermission()
+    }
+
+    fun hasPermissionsForReceiver(): Boolean {
+        return hasNotificationsPermission() &&
+                hasBluetoothPermissions() &&
+                hasLocationPermissions() &&
+                hasMockLocationPermission()
+    }
+
     fun hasPermissions(permissions: List<String>): Boolean {
         return permissions.all { hasPermission(it) }
     }

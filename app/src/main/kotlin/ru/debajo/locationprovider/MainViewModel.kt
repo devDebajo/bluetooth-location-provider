@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -39,10 +38,7 @@ internal class MainViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            combine(
-                appServiceState.isProviderServiceRunning,
-                appServiceState.isReceiverServiceRunning,
-            ) { a, b -> a || b }.collect { isRunning ->
+            appServiceState.observeServiceRunning().collect { isRunning ->
                 updateState {
                     when (this) {
                         is MainState.Provider -> copy(isRunning = isRunning)
