@@ -33,7 +33,13 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
     override fun onCreate() {
         super.onCreate()
         notificationManager.addNotificationChannel()
-        startForeground(NOTIFICATION_ID, createServiceNotification(this))
+        startForeground(
+            NOTIFICATION_ID,
+            createServiceNotification(
+                context = this,
+                isProvider = false,
+            )
+        )
 
         appServiceState.isReceiverServiceRunning.value = true
         mockLocationManager.start()

@@ -43,7 +43,13 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
     override fun onCreate() {
         super.onCreate()
         notificationManager.addNotificationChannel()
-        startForeground(NOTIFICATION_ID, createServiceNotification(this))
+        startForeground(
+            NOTIFICATION_ID,
+            createServiceNotification(
+                context = this,
+                isProvider = true,
+            )
+        )
 
         launch {
             runListening()

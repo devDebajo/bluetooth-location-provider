@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.kotlinx.serialization)
     implementation(libs.play.services.location)
+    implementation(libs.kotlinx.datetime)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

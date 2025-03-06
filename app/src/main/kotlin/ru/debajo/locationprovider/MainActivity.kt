@@ -1,5 +1,6 @@
 package ru.debajo.locationprovider
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -275,6 +276,12 @@ internal class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
         }.onFailure {
             startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+    }
+
+    companion object {
+        fun createIntent(context: Context): Intent {
+            return Intent(context, MainActivity::class.java)
         }
     }
 }
