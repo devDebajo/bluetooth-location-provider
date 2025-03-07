@@ -17,9 +17,23 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = rootProject.properties["RELEASE_KEY_ALIAS"] as? String
+            keyPassword = rootProject.properties["RELEASE_KEY_PASSWORD"] as? String
+            storeFile = file(rootProject.properties["RELEASE_STORE_FILE"] as String)
+            storePassword = rootProject.properties["RELEASE_STORE_PASSWORD"] as? String
+        }
+    }
+    
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
+
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            signingConfig = signingConfigs["release"]
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -28,6 +42,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+
 
     kotlinOptions {
         jvmTarget = "11"
