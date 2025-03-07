@@ -2,19 +2,33 @@ package ru.debajo.locationprovider
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 
 internal class AppServiceState {
-    val isProviderServiceRunning: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    val isReceiverServiceRunning: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    private val _providerState: MutableStateFlow<ServiceState> = MutableStateFlow(ServiceState())
+    private val _receiverState: MutableStateFlow<ServiceState> = MutableStateFlow(ServiceState())
+
+    val providerState: StateFlow<ServiceState> = _providerState.asStateFlow()
+    val receiverState: StateFlow<ServiceState> = _receiverState.asStateFlow()
+
+    fun updateProviderState(block: ServiceState.() -> ServiceState) {
+        _providerState.update(block)
+    }
+
+    fun updateReceiverState(block: ServiceState.() -> ServiceState) {
+        _receiverState.update(block)
+    }
 
     val isRunning: Boolean
-        get() = isProviderServiceRunning.value || isReceiverServiceRunning.value
+        get() = providerState.value.isRunning || receiverState.value.isRunning
 
     fun observeServiceRunning(): Flow<Boolean> {
         return combine(
-            isProviderServiceRunning,
-            isReceiverServiceRunning,
-        ) { a, b -> a || b }
+            providerState,
+            receiverState,
+        ) { a, b -> a.isRunning || b.isRunning }
     }
 }

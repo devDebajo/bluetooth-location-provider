@@ -27,11 +27,11 @@ internal class AppLocalReceiver : BroadcastReceiver() {
             }
 
             STOP_SERVICES, NOTIFICATION_DELETED -> {
-                if (appServiceState.isReceiverServiceRunning.value) {
+                if (appServiceState.receiverState.value.isRunning) {
                     ReceiverLocationForegroundService.stop(context)
                 }
 
-                if (appServiceState.isProviderServiceRunning.value) {
+                if (appServiceState.providerState.value.isRunning) {
                     ProviderLocationForegroundService.stop(context)
                 }
             }

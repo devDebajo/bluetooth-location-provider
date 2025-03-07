@@ -30,6 +30,7 @@ import ru.debajo.locationprovider.utils.Di
 import ru.debajo.locationprovider.utils.Preferences
 import ru.debajo.locationprovider.utils.addNotificationChannel
 import ru.debajo.locationprovider.utils.createServiceNotification
+import java.util.concurrent.TimeUnit
 
 @SuppressLint("MissingPermission")
 internal class ProviderLocationForegroundService : Service(), CoroutineScope by CoroutineScope(Main) {
@@ -45,13 +46,13 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
     override fun onCreate() {
         super.onCreate()
         notificationManager.addNotificationChannel()
-        startForeground(
-            NOTIFICATION_ID,
-            createServiceNotification(
-                context = this,
-                isProvider = true,
-            )
-        )
+        startForeground(NOTIFICATION_ID, createServiceNotification(context = this, isProvider = true))
+
+        launch {
+            appServiceState.providerState.collect {
+                updateNotification(isConnected = it.isConnected, lastUpdate = it.lastUpdate)
+            }
+        }
 
         launch {
             runListening()
@@ -61,21 +62,26 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
 
     override fun onDestroy() {
         super.onDestroy()
-        appServiceState.isProviderServiceRunning.value = false
+        appServiceState.updateProviderState { copy(isRunning = false, isConnected = false) }
         cancel()
     }
 
     private suspend fun runListening() {
         val receiverAddress = preferences.selectedReceiver.state.value ?: return
-        bluetoothClient.connect(receiverAddress) {
-            appServiceState.isProviderServiceRunning.value = true
-            updateNotification(isConnected = true)
+        appServiceState.updateProviderState { copy(isRunning = true, isConnected = false) }
+
+        bluetoothClient.connect(receiverAddress, connectTimeoutMs = CONNECT_TIMEOUT) {
+            appServiceState.updateProviderState { copy(isRunning = true, isConnected = true) }
+
             listenLocation()
                 .map {
-                    updateNotification(
-                        isConnected = true,
-                        lastUpdate = Clock.System.now(),
-                    )
+                    appServiceState.updateProviderState {
+                        copy(
+                            isRunning = true,
+                            isConnected = true,
+                            lastUpdate = Clock.System.now(),
+                        )
+                    }
                     write(it.toRemote(), RemoteLocation.serializer())
                 }
                 .collect()
@@ -119,6 +125,8 @@ internal class ProviderLocationForegroundService : Service(), CoroutineScope by 
 
     companion object {
         private const val NOTIFICATION_ID: Int = 543675336
+
+        private val CONNECT_TIMEOUT: Long = TimeUnit.MINUTES.toMillis(5)
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, ProviderLocationForegroundService::class.java))

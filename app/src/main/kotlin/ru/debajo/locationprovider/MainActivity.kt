@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +43,7 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
 import ru.debajo.locationprovider.ui.theme.LocationProviderTheme
 import ru.debajo.locationprovider.utils.Di
+import ru.debajo.locationprovider.utils.format
 
 internal class MainActivity : ComponentActivity() {
 
@@ -95,9 +97,8 @@ internal class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = { SnackbarHost(hostState) },
-                ) { innerPadding ->
-                    PermittedContent(innerPadding)
-                }
+                    content = { innerPadding -> Content(innerPadding) },
+                )
             }
         }
     }
@@ -108,7 +109,7 @@ internal class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun PermittedContent(paddings: PaddingValues) {
+    private fun Content(paddings: PaddingValues) {
         val state by viewModel.state.collectAsState()
 
         Box(
@@ -121,10 +122,12 @@ internal class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(Modifier.size(10.dp))
+                ServiceState(state)
+                HorizontalDivider(modifier = Modifier.padding(16.dp))
                 RadioButtons(state)
+                HorizontalDivider(modifier = Modifier.padding(16.dp))
                 when (val localState = state) {
                     is MainState.Provider -> {
-                        Spacer(Modifier.size(20.dp))
                         AvailableEndpoints(localState, modifier = Modifier.weight(1f))
                     }
 
@@ -155,6 +158,33 @@ internal class MainActivity : ComponentActivity() {
         val stateReceiver = state as? MainState.Receiver
         if (stateReceiver?.showMockPermissionDialog == true) {
             MockLocationDialog()
+        }
+    }
+
+    @Composable
+    private fun ServiceState(
+        state: MainState,
+        modifier: Modifier = Modifier,
+    ) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        ) {
+            Text(
+                text = "Состояние",
+                fontWeight = FontWeight.Medium,
+                fontSize = 20.sp,
+            )
+            Spacer(Modifier.size(8.dp))
+            Text(text = if (state.serviceState.isRunning) "Включено" else "Отключено")
+            if (state.serviceState.isRunning) {
+                Text(text = if (state.serviceState.isConnected) "Подключено" else "Ожидание подключения")
+            }
+            val lastUpdate = state.serviceState.lastUpdate
+            if (lastUpdate != null) {
+                Text(text = "Последнее обновление: ${lastUpdate.format()}")
+            }
         }
     }
 

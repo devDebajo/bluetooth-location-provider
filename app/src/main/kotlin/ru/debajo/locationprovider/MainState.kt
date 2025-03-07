@@ -5,7 +5,10 @@ import ru.debajo.locationprovider.bluetooth.BluetoothEndpoint
 
 @Immutable
 internal sealed interface MainState {
+    val serviceState: ServiceState
+
     val isRunning: Boolean
+        get() = serviceState.isRunning
 
     val canStop: Boolean
         get() = isRunning
@@ -13,14 +16,14 @@ internal sealed interface MainState {
     val canStart: Boolean
 
     data class Receiver(
-        override val isRunning: Boolean = false,
+        override val serviceState: ServiceState = ServiceState(),
         val showMockPermissionDialog: Boolean = false,
     ) : MainState {
         override val canStart: Boolean = !isRunning
     }
 
     data class Provider(
-        override val isRunning: Boolean = false,
+        override val serviceState: ServiceState = ServiceState(),
         val availableEndpoints: List<BluetoothEndpoint> = emptyList(),
         val selectedEndpointAddress: String? = null,
     ) : MainState {

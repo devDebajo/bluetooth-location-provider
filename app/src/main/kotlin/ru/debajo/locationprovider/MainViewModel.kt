@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.debajo.locationprovider.bluetooth.BluetoothEndpoint
@@ -22,6 +24,7 @@ import ru.debajo.locationprovider.location.ReceiverLocationForegroundService
 import ru.debajo.locationprovider.utils.Di
 import ru.debajo.locationprovider.utils.Preferences
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @SuppressLint("MissingPermission")
 internal class MainViewModel : ViewModel() {
 
@@ -38,11 +41,16 @@ internal class MainViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            appServiceState.observeServiceRunning().collect { isRunning ->
+            state.flatMapLatest {
+                when (it) {
+                    is MainState.Provider -> appServiceState.providerState
+                    is MainState.Receiver -> appServiceState.receiverState
+                }
+            }.collect { serviceState ->
                 updateState {
                     when (this) {
-                        is MainState.Provider -> copy(isRunning = isRunning)
-                        is MainState.Receiver -> copy(isRunning = isRunning)
+                        is MainState.Provider -> copy(serviceState = serviceState)
+                        is MainState.Receiver -> copy(serviceState = serviceState)
                     }
                 }
             }

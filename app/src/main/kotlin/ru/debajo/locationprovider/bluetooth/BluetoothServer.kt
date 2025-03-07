@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import ru.debajo.locationprovider.utils.runCatchingAsync
 import java.util.UUID
 
@@ -23,14 +24,17 @@ internal class BluetoothServer(
     private val bluetoothManager: BluetoothManager,
 ) {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun observeMessages(address: UUID = bluetoothServerUuid): Flow<Message> {
+    fun observeMessages(
+        connectTimeoutMs: Long,
+        address: UUID = bluetoothServerUuid,
+    ): Flow<Message> {
         return callbackFlow {
             val serverSocket = runCatchingAsync {
                 bluetoothManager.adapter.listenUsingRfcommWithServiceRecord(bluetoothServerName, address)
             }.getOrNull()
 
             val job = launch {
-                serverSocket?.listen()?.collect { trySend(it) }
+                serverSocket?.listen(connectTimeoutMs)?.collect { trySend(it) }
             }
 
             awaitClose {
@@ -40,14 +44,17 @@ internal class BluetoothServer(
         }.flowOn(Dispatchers.IO)
     }
 
-    private fun BluetoothServerSocket.listen(): Flow<Message> {
+    private fun BluetoothServerSocket.listen(connectTimeoutMs: Long): Flow<Message> {
         return callbackFlow {
             val job = launch {
                 while (currentCoroutineContext().isActive) {
-                    val socket = runCatchingAsync { awaitSocket() }.getOrNull()
+                    val socket = withTimeoutOrNull(connectTimeoutMs) {
+                        awaitConnection()
+                    }
+
                     if (socket == null) {
-                        delay(1000)
-                        continue
+                        close()
+                        break
                     }
 
                     trySend(Message.Connected)
@@ -81,11 +88,21 @@ internal class BluetoothServer(
         }
     }
 
+    private suspend fun BluetoothServerSocket.awaitConnection(): BluetoothSocket {
+        while (true) {
+            val socket = runCatchingAsync { awaitSocket() }.getOrNull()
+            if (socket != null) {
+                return socket
+            }
+            delay(3000)
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun BluetoothServerSocket.awaitSocket(): BluetoothSocket {
         return suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { close() }
-            val socket = accept()
+            val socket = accept(7_000)
             continuation.resume(socket) { close() }
         }
     }

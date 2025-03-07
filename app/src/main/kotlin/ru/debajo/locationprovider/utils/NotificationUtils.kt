@@ -64,7 +64,7 @@ internal fun createServiceNotification(
         .build()
 }
 
-private fun Instant.format(): String {
+internal fun Instant.format(): String {
     val localDateTime = toLocalDateTime(TimeZone.currentSystemDefault())
     val formatter = if (Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date == localDateTime.date) {
         DateTimeFormatter.ofPattern("HH:mm")

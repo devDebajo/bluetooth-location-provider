@@ -19,6 +19,7 @@ import ru.debajo.locationprovider.utils.Di
 import ru.debajo.locationprovider.utils.addNotificationChannel
 import ru.debajo.locationprovider.utils.createServiceNotification
 import ru.debajo.locationprovider.utils.runCatchingAsync
+import java.util.concurrent.TimeUnit
 
 internal class ReceiverLocationForegroundService : Service(), CoroutineScope by CoroutineScope(Dispatchers.Main) {
 
@@ -34,47 +35,42 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
     override fun onCreate() {
         super.onCreate()
         notificationManager.addNotificationChannel()
-        startForeground(
-            NOTIFICATION_ID,
-            createServiceNotification(
-                context = this,
-                isProvider = false,
-            )
-        )
+        startForeground(NOTIFICATION_ID, createServiceNotification(context = this, isProvider = false))
 
-        appServiceState.isReceiverServiceRunning.value = true
+        appServiceState.updateReceiverState { copy(isRunning = true, isConnected = false) }
         mockLocationManager.start()
 
         launch {
-            var lastUpdate: Instant? = null
-            bluetoothServer.observeMessages()
+            appServiceState.receiverState.collect {
+                updateNotification(isConnected = it.isConnected, lastUpdate = it.lastUpdate)
+            }
+        }
+
+        launch {
+            bluetoothServer.observeMessages(CONNECT_TIMEOUT)
                 .collect { message ->
                     when (message) {
                         is BluetoothServer.Message.Connected -> {
-                            updateNotification(
-                                isConnected = true,
-                                lastUpdate = lastUpdate,
-                            )
+                            appServiceState.updateReceiverState { copy(isRunning = true, isConnected = true) }
                         }
 
                         is BluetoothServer.Message.Disconnected -> {
-                            updateNotification(
-                                isConnected = false,
-                                lastUpdate = lastUpdate,
-                            )
+                            appServiceState.updateReceiverState { copy(isRunning = true, isConnected = false) }
                         }
 
                         is BluetoothServer.Message.TextMessage -> {
                             val location = runCatchingAsync { json.decodeFromString(RemoteLocation.serializer(), message.text) }.getOrNull()
                             if (location != null) {
-                                lastUpdate = Clock.System.now()
+                                appServiceState.updateReceiverState {
+                                    copy(
+                                        isRunning = true,
+                                        isConnected = true,
+                                        lastUpdate = Clock.System.now()
+                                    )
+                                }
+
                                 mockLocationManager.mockLocation(location)
                             }
-
-                            updateNotification(
-                                isConnected = true,
-                                lastUpdate = lastUpdate,
-                            )
                         }
                     }
                 }
@@ -84,7 +80,7 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
-        appServiceState.isReceiverServiceRunning.value = false
+        appServiceState.updateReceiverState { copy(isRunning = false, isConnected = false) }
         cancel()
         mockLocationManager.stop()
     }
@@ -106,6 +102,8 @@ internal class ReceiverLocationForegroundService : Service(), CoroutineScope by 
 
     companion object {
         private const val NOTIFICATION_ID: Int = 543675337
+
+        private val CONNECT_TIMEOUT: Long = TimeUnit.MINUTES.toMillis(5)
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, ReceiverLocationForegroundService::class.java))
