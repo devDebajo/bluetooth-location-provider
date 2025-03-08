@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 private const val ChannelId: String = "location_service"
 
 internal fun NotificationManager.addNotificationChannel() {
-    val importance = NotificationManager.IMPORTANCE_DEFAULT
+    val importance = NotificationManager.IMPORTANCE_LOW
     val systemChannel = NotificationChannel(
         ChannelId,
         "location_service",
@@ -55,6 +55,8 @@ internal fun createServiceNotification(
             MainActivity.createIntent(context)
                 .toPending(context, 0, PendingIntentType.ACTIVITY)
         )
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setCategory(NotificationCompat.CATEGORY_SERVICE)
         .addAction(
             android.R.drawable.ic_menu_close_clear_cancel,
             "Стоп",

@@ -20,7 +20,9 @@ internal class MockLocationManager(
     private val lastLocation: MutableStateFlow<Location?> = MutableStateFlow(null)
 
     fun mockLocation(location: RemoteLocation) {
-        lastLocation.value = location.toLocation(LocationManager.GPS_PROVIDER)
+        lastLocation.value = location.toLocation(
+            provider = LocationManager.GPS_PROVIDER,
+        )
     }
 
     fun start() {
