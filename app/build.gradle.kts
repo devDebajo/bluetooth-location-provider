@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "ru.debajo.locationprovider"
-        minSdk = 33
+        minSdk = 29
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
@@ -25,7 +25,7 @@ android {
             storePassword = rootProject.properties["RELEASE_STORE_PASSWORD"] as? String
         }
     }
-    
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"

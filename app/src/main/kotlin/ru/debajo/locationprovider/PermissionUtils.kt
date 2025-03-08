@@ -3,17 +3,26 @@ package ru.debajo.locationprovider
 import android.Manifest
 import android.app.AppOpsManager
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import ru.debajo.locationprovider.utils.Di
 
 object PermissionUtils {
-    val BluetoothPermissionsList: List<String> = listOf(
-        Manifest.permission.BLUETOOTH,
-        Manifest.permission.BLUETOOTH_CONNECT,
-    )
+    val BluetoothPermissionsList: List<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        listOf(
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        )
+    } else {
+        listOf(Manifest.permission.BLUETOOTH)
+    }
 
-    const val NotificationsPermission: String = Manifest.permission.POST_NOTIFICATIONS
+    val NotificationsPermission: String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.POST_NOTIFICATIONS
+    } else {
+        ""
+    }
 
     val LocationPermissionsList: List<String> = listOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -28,7 +37,13 @@ object PermissionUtils {
 
     fun hasBackgroundLocationPermission(): Boolean = hasPermission(BackgroundLocationPermission)
 
-    fun hasNotificationsPermission(): Boolean = hasPermission(NotificationsPermission)
+    fun hasNotificationsPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            hasPermission(NotificationsPermission)
+        } else {
+            true
+        }
+    }
 
     fun hasPermissionsForProvider(): Boolean {
         return hasNotificationsPermission() &&

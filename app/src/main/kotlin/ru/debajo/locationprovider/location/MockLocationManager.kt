@@ -1,7 +1,9 @@
 package ru.debajo.locationprovider.location
 
+import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,10 +17,10 @@ internal class MockLocationManager(
     private val coroutineScope: CoroutineScope,
 ) {
     private var job: Job? = null
-    private val lastLocation: MutableStateFlow<RemoteLocation?> = MutableStateFlow(null)
+    private val lastLocation: MutableStateFlow<Location?> = MutableStateFlow(null)
 
     fun mockLocation(location: RemoteLocation) {
-        lastLocation.value = location
+        lastLocation.value = location.toLocation(LocationManager.GPS_PROVIDER)
     }
 
     fun start() {
@@ -27,7 +29,7 @@ internal class MockLocationManager(
         job?.cancel()
         job = coroutineScope.launch {
             while (true) {
-                val mockLocation = lastLocation.filterNotNull().first().toLocation(LocationManager.GPS_PROVIDER)
+                val mockLocation = lastLocation.filterNotNull().first()
                 locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
                 delay(300)
             }
@@ -40,18 +42,33 @@ internal class MockLocationManager(
     }
 
     private fun LocationManager.mockGpsProvider() {
-        addTestProvider(
-            LocationManager.GPS_PROVIDER,
-            true,
-            true,
-            false,
-            false,
-            true,
-            true,
-            true,
-            ProviderProperties.POWER_USAGE_HIGH,
-            ProviderProperties.ACCURACY_FINE,
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            addTestProvider(
+                LocationManager.GPS_PROVIDER,
+                true,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                ProviderProperties.POWER_USAGE_HIGH,
+                ProviderProperties.ACCURACY_FINE,
+            )
+        } else {
+            addTestProvider(
+                LocationManager.GPS_PROVIDER,
+                true,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                0,
+                5,
+            )
+        }
         setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
     }
 

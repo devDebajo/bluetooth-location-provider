@@ -127,6 +127,7 @@ internal class LocationTileService : TileService(), CoroutineScope by CoroutineS
         sendBroadcast(AppLocalReceiver.stopServicesIntent(this))
     }
 
+    @Suppress("DEPRECATION")
     @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openMainActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
